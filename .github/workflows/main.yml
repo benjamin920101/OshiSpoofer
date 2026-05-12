@@ -1,0 +1,55 @@
+on:
+  push:
+    tags:
+      - "v*-rc*"
+      - "v*-pre*"
+      - "v*-alpha*"
+      - "v*-beta*"
+
+permissions:
+  contents: write  # 建立/更新 Release + 上傳資產
+
+jobs:
+  build-and-prerelease:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 提供 JAVA_HOME，讓 /I"%JAVA_HOME%\include" 可用
+      - name: Setup Java (for JAVA_HOME)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # 設定 MSVC 編譯環境（cl.exe）
+      - name: Setup MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build DLL (cl /LD)
+        shell: cmd
+        run: |
+          mkdir dist
+          cl /LD hwid_spoof.c /I"%JAVA_HOME%\include" /I"%JAVA_HOME%\include\win32" /Fe:dist\hwid_spoof.dll
+
+      # （可選）把 import lib / pdb 也一起釋出，方便其他專案 link / debug
+      - name: Collect extra outputs
+        shell: pwsh
+        run: |
+          if (Test-Path "hwid_spoof.lib") { Copy-Item hwid_spoof.lib dist\ -Force }
+          if (Test-Path "hwid_spoof.exp") { Copy-Item hwid_spoof.exp dist\ -Force }
+          if (Test-Path "hwid_spoof.pdb") { Copy-Item hwid_spoof.pdb dist\ -Force }
+
+      - name: Create prerelease & upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          prerelease: true
+          generate_release_notes: true
+          files: |
+            dist/**/*
