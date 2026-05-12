@@ -1,10 +1,5 @@
-on:
-  push:
-    tags:
-      - "v*-rc*"
-      - "v*-pre*"
-      - "v*-alpha*"
-      - "v*-beta*"
+name: build
+on: [pull_request, push]
 
 permissions:
   contents: write  # 建立/更新 Release + 上傳資產
